@@ -22,7 +22,7 @@ class EthereumAccountManager extends EventEmitter {
     if (isProd) {
       url =
         localStorage.getItem('XDAI_RPC_ENDPOINT') ||
-        'https://rpc.xdaichain.com/';
+        'https://dai.poa.network/';
     } else {
       url = 'http://localhost:8545';
     }
@@ -68,7 +68,7 @@ class EthereumAccountManager extends EventEmitter {
       this.emit('ChangedRPCEndpoint');
     } catch (e) {
       console.error(`error setting rpc endpoint: ${e}`);
-      this.setRpcEndpoint('https://rpc.xdaichain.com/');
+      this.setRpcEndpoint('https://dai.poa.network/');
       return;
     }
   }

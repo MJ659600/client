@@ -1,8 +1,5 @@
+import { ArtifactPointValues, UpgradeBranches } from '@darkforest_eth/types';
 import { BigNumber as EthersBN } from 'ethers';
-import { LocationId, Upgrade } from '../../global/GlobalTypes';
-
-// TODO write these types
-export type ContractCallArgs = Array<unknown>;
 
 export enum ZKArgIdx {
   PROOF_A,
@@ -15,6 +12,11 @@ export enum InitArgIdxs {
   LOCATION_ID,
   PERLIN,
   RADIUS,
+  PLANETHASH_KEY,
+  SPACETYPE_KEY,
+  PERLIN_LENGTH_SCALE,
+  PERLIN_MIRROR_X,
+  PERLIN_MIRROR_Y,
 }
 
 export enum MoveArgIdxs {
@@ -23,8 +25,14 @@ export enum MoveArgIdxs {
   TO_PERLIN,
   TO_RADIUS,
   DIST_MAX,
+  PLANETHASH_KEY,
+  SPACETYPE_KEY,
+  PERLIN_LENGTH_SCALE,
+  PERLIN_MIRROR_X,
+  PERLIN_MIRROR_Y,
   SHIPS_SENT,
   SILVER_SENT,
+  ARTIFACT_SENT,
 }
 
 export enum UpgradeArgIdxs {
@@ -36,49 +44,37 @@ export enum ContractEvent {
   PlayerInitialized = 'PlayerInitialized',
   ArrivalQueued = 'ArrivalQueued',
   PlanetUpgraded = 'PlanetUpgraded',
-  BoughtHat = 'BoughtHat',
+  PlanetHatBought = 'PlanetHatBought',
+  PlanetTransferred = 'PlanetTransferred',
+  LocationRevealed = 'LocationRevealed',
+  ArtifactFound = 'ArtifactFound',
+  ArtifactDeposited = 'ArtifactDeposited',
+  ArtifactWithdrawn = 'ArtifactWithdrawn',
+  ArtifactActivated = 'ArtifactActivated',
+  ArtifactDeactivated = 'ArtifactDeactivated',
+  PlanetSilverWithdrawn = 'PlanetSilverWithdrawn',
+
+  // DarkForestGPTCredit
+  ChangedGPTCreditPrice = 'ChangedCreditPrice',
 }
 
 export enum ContractsAPIEvent {
-  PlayerInit = 'PlayerInit',
+  PlayerUpdate = 'PlayerUpdate',
   PlanetUpdate = 'PlanetUpdate',
-  TxInitialized = 'TxInitialized',
+  ArrivalQueued = 'ArrivalQueued',
+  ArtifactUpdate = 'ArtifactUpdate',
+  RadiusUpdated = 'RadiusUpdated',
+  LocationRevealed = 'LocationRevealed',
+  ChangedGPTCreditPrice = 'ChangedCreditPrice',
   TxInitFailed = 'TxInitFailed',
   TxSubmitted = 'TxSubmitted',
   TxConfirmed = 'TxConfirmed',
-  RadiusUpdated = 'RadiusUpdated',
+  TxReverted = 'TxReverted',
+  PlanetTransferred = 'PlanetTransferred',
 }
-
-export type InitializePlayerArgs = [
-  [string, string], // proofA
-  [
-    // proofB
-    [string, string],
-    [string, string]
-  ],
-  [string, string], // proofC
-  [string, string, string] // locationId (BigInt), perlin, radius
-];
 
 // planet locationID(BigInt), branch number
 export type UpgradeArgs = [string, string];
-
-export type MoveSnarkArgs = [
-  [string, string], // proofA
-  [
-    // proofB
-    [string, string],
-    [string, string]
-  ],
-  [string, string], // proofC
-  [
-    string, // from locationID (BigInt)
-    string, // to locationID (BigInt)
-    string, // perlin at to
-    string, // radius at to
-    string // distMax
-  ]
-];
 
 export type MoveArgs = [
   [string, string], // proofA
@@ -94,23 +90,73 @@ export type MoveArgs = [
     string, // perlin at to
     string, // radius at to
     string, // distMax
+    string, // planetHashKey
+    string, // spaceTypeKey
+    string, // perlin lengthscale
+    string, // perlin xmirror (1 true, 0 false)
+    string, // perlin ymirror (1 true, 0 false)
     string, // ships sent
-    string // silver sent
+    string, // silver sent
+    string // artifactId sent
   ]
 ];
 
-export type UpgradeBranch = [Upgrade, Upgrade, Upgrade, Upgrade];
-export type UpgradesInfo = [UpgradeBranch, UpgradeBranch, UpgradeBranch];
+export type DepositArtifactArgs = [string, string]; // locationId, artifactId
+export type WithdrawArtifactArgs = [string, string]; // locationId, artifactId
+
+export type PlanetTypeWeights = [number, number, number, number, number]; // relative frequencies of the 5 planet types
+export type PlanetTypeWeightsByLevel = [
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights,
+  PlanetTypeWeights
+];
+export type PlanetTypeWeightsBySpaceType = [
+  PlanetTypeWeightsByLevel,
+  PlanetTypeWeightsByLevel,
+  PlanetTypeWeightsByLevel,
+  PlanetTypeWeightsByLevel
+];
 
 export interface ContractConstants {
+  DISABLE_ZK_CHECKS: boolean;
+
+  PLANETHASH_KEY: number;
+  SPACETYPE_KEY: number;
+  BIOMEBASE_KEY: number;
+  PERLIN_LENGTH_SCALE: number;
+  PERLIN_MIRROR_X: boolean;
+  PERLIN_MIRROR_Y: boolean;
+
+  TOKEN_MINT_END_SECONDS: number;
+
+  MAX_NATURAL_PLANET_LEVEL: number;
   TIME_FACTOR_HUNDREDTHS: number;
+  /**
+   * The perlin value at each coordinate determines the space type. There are four space
+   * types, which means there are four ranges on the number line that correspond to
+   * each space type. This function returns the boundary values between each of these
+   * four ranges: `PERLIN_THRESHOLD_1`, `PERLIN_THRESHOLD_2`, `PERLIN_THRESHOLD_3`.
+   */
   PERLIN_THRESHOLD_1: number;
   PERLIN_THRESHOLD_2: number;
+  PERLIN_THRESHOLD_3: number;
+  INIT_PERLIN_MIN: number;
+  INIT_PERLIN_MAX: number;
+  BIOME_THRESHOLD_1: number;
+  BIOME_THRESHOLD_2: number;
   PLANET_RARITY: number;
+  PLANET_TYPE_WEIGHTS: PlanetTypeWeightsBySpaceType;
+  ARTIFACT_POINT_VALUES: ArtifactPointValues;
 
-  SILVER_RARITY_1: number;
-  SILVER_RARITY_2: number;
-  SILVER_RARITY_3: number;
+  PHOTOID_ACTIVATION_DELAY: number;
+  LOCATION_REVEAL_COOLDOWN: number;
 
   defaultPopulationCap: number[];
   defaultPopulationGrowth: number[];
@@ -126,7 +172,7 @@ export interface ContractConstants {
   planetLevelThresholds: number[];
   planetCumulativeRarities: number[];
 
-  upgrades: UpgradesInfo;
+  upgrades: UpgradeBranches;
 }
 
 export type ClientMockchainData =
@@ -141,250 +187,6 @@ export type ClientMockchainData =
       [key in string | number]: ClientMockchainData;
     };
 
-/*
-export interface RawArrivalData {
-  // note that from actual blockchain, this will be an array
-  // not an object; this fields will be keyed by numerica index, not string
-  arrivalId: string;
-  departureTime: BigNumber;
-  arrivalTime: BigNumber;
-  player: string;
-  oldLoc: BigNumber;
-  newLoc: BigNumber;
-  maxDist: BigNumber;
-  shipsMoved: BigNumber;
-  silverMoved: BigNumber;
-}
-*/
-/*
-export type RawQueuedArrival = {
-  eventId: string;
-  player: string;
-  fromPlanet: BigNumber;
-  toPlanet: BigNumber;
-  popArriving: BigNumber;
-  silverMoved: BigNumber;
-
-  timeTrigger: BigNumber;
-  timeAdded: BigNumber;
-}
-*/
 export enum PlanetEventType {
   ARRIVAL,
 }
-
-export type RawPlanetEventMetadata = {
-  id: string;
-  eventType: EthersBN;
-  timeTrigger: EthersBN;
-  timeAdded: EthersBN;
-};
-
-export type RawUpgrade = {
-  0: EthersBN;
-  popCapMultiplier?: EthersBN;
-
-  1: EthersBN;
-  popGroMultiplier?: EthersBN;
-
-  2: EthersBN;
-  rangeMultiplier?: EthersBN;
-
-  3: EthersBN;
-  speedMultiplier?: EthersBN;
-
-  4: EthersBN;
-  defMultiplier?: EthersBN;
-};
-
-export type RawUpgradesInfo = [
-  [RawUpgrade, RawUpgrade, RawUpgrade, RawUpgrade],
-  [RawUpgrade, RawUpgrade, RawUpgrade, RawUpgrade],
-  [RawUpgrade, RawUpgrade, RawUpgrade, RawUpgrade]
-];
-
-export type RawArrivalData = {
-  0: EthersBN;
-  id?: EthersBN;
-
-  1: string;
-  player?: string;
-
-  2: EthersBN;
-  fromPlanet?: EthersBN;
-
-  3: EthersBN;
-  toPlanet?: EthersBN;
-
-  4: EthersBN;
-  popArriving?: EthersBN;
-
-  5: EthersBN;
-  silverMoved?: EthersBN;
-
-  6: EthersBN;
-  departureTime?: EthersBN;
-
-  7: EthersBN;
-  arrivalTime?: EthersBN;
-};
-
-export type RawDefaults = {
-  0: string;
-  label?: string;
-
-  1: EthersBN;
-  populationCap?: EthersBN;
-
-  2: EthersBN;
-  populationGrowth?: EthersBN;
-
-  3: EthersBN;
-  range?: EthersBN;
-
-  4: EthersBN;
-  speed?: EthersBN;
-
-  5: EthersBN;
-  defense?: EthersBN;
-
-  6: EthersBN;
-  silverGrowth?: EthersBN;
-
-  7: EthersBN;
-  silverCap?: EthersBN;
-
-  8: EthersBN;
-  barbarianPercentage?: EthersBN;
-}[];
-
-export interface RawPlanetData {
-  // note that from actual blockchain, this will be an array
-  // not an object; this fields will be keyed by numerical index, not string
-  0: string;
-  owner?: string;
-
-  1: EthersBN;
-  range?: EthersBN;
-
-  2: EthersBN;
-  speed?: EthersBN;
-
-  3: EthersBN;
-  defense?: EthersBN;
-
-  4: EthersBN;
-  population?: EthersBN;
-
-  5: EthersBN;
-  populationCap?: EthersBN;
-
-  6: EthersBN;
-  populationGrowth?: EthersBN;
-
-  7: number;
-  planetResource?: number;
-
-  8: EthersBN;
-  silverCap?: EthersBN;
-
-  9: EthersBN;
-  silverGrowth?: EthersBN;
-
-  10: EthersBN;
-  silver?: EthersBN;
-
-  11: EthersBN;
-  planetLevel?: EthersBN;
-}
-
-export interface RawPlanetExtendedInfo {
-  // note that from actual blockchain, this will be an array
-  // not an object; this fields will be keyed by numerical index, not string
-  0: boolean;
-  isInitialized?: boolean;
-
-  1: EthersBN;
-  createdAt?: EthersBN;
-
-  2: EthersBN;
-  lastUpdated?: EthersBN;
-
-  3: EthersBN;
-  perlin?: EthersBN;
-
-  4: number;
-  spaceType?: number;
-
-  5: EthersBN;
-  upgradeState0?: EthersBN;
-
-  6: EthersBN;
-  upgradeState1?: EthersBN;
-
-  7: EthersBN;
-  upgradeState2?: EthersBN;
-
-  8: EthersBN;
-  hatLevel?: EthersBN;
-
-  // 9 is delegatedPlayers, but we don't get this array
-}
-
-export enum EthTxType {
-  INIT = 'INIT',
-  MOVE = 'MOVE',
-  UPGRADE = 'UPGRADE',
-  BUY_HAT = 'BUY_HAT',
-}
-
-export enum EthTxStatus {
-  Init,
-  Submit,
-  Confirm,
-  Fail,
-}
-
-export type UnconfirmedTx = {
-  // we generate a txId so we can reference the tx
-  // before it is submitted to chain and given a txHash
-  actionId: string;
-  type: EthTxType;
-};
-
-export type SubmittedTx = UnconfirmedTx & {
-  txHash: string;
-  sentAtTimestamp: number;
-};
-
-export type UnconfirmedInit = UnconfirmedTx & {
-  type: EthTxType.INIT;
-  locationId: LocationId;
-};
-
-export type SubmittedInit = UnconfirmedInit & SubmittedTx;
-
-export type UnconfirmedMove = UnconfirmedTx & {
-  type: EthTxType.MOVE;
-  from: LocationId;
-  to: LocationId;
-  forces: number;
-  silver: number;
-};
-
-export type SubmittedMove = UnconfirmedMove & SubmittedTx;
-
-export type UnconfirmedUpgrade = UnconfirmedTx & {
-  type: EthTxType.UPGRADE;
-  locationId: LocationId;
-  upgradeBranch: number; // 0, 1, or 2
-};
-
-export type SubmittedUpgrade = UnconfirmedUpgrade & SubmittedTx;
-
-export type UnconfirmedBuyHat = UnconfirmedTx & {
-  type: EthTxType.BUY_HAT;
-  locationId: LocationId;
-};
-
-export type SubmittedBuyHat = UnconfirmedBuyHat & SubmittedTx;
